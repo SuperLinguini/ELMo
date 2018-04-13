@@ -5,14 +5,71 @@ clipping on both the hidden state and the memory state of the LSTM.
 
 from typing import Optional, Tuple, List
 
-import torch
-from torch.autograd import Variable
-
-from allennlp.nn.util import get_dropout_mask
-from allennlp.nn.initializers import block_orthogonal
+# import torch
+# from torch.autograd import Variable
 
 
-class LstmCellWithProjection(torch.nn.Module):
+import itertools
+from common.utils import ConfigurationError
+
+import mxnet as mx
+from mxnet import gluon, nd, init
+from mxnet.gluon import nn
+from mxnet.ndarray.ndarray import NDArray
+
+# from allennlp.nn.util import get_dropout_mask
+# from allennlp.nn.initializers import block_orthogonal
+
+def block_orthogonal(tensor: NDArray,
+                     split_sizes: List[int],
+                     gain: float = 1.0) -> None:
+    """
+    An initializer which allows initializing model parameters in "blocks". This is helpful
+    in the case of recurrent models which use multiple gates applied to linear projections,
+    which can be computed efficiently if they are concatenated together. However, they are
+    separate parameters which should be initialized independently.
+
+    Parameters
+    ----------
+    tensor : ``mxnet.ndarray.ndarray.NDArray``, required.
+        A tensor to initialize.
+    split_sizes : List[int], required.
+        A list of length ``tensor.ndim()`` specifying the size of the
+        blocks along that particular dimension. E.g. ``[10, 20]`` would
+        result in the tensor being split into chunks of size 10 along the
+        first dimension and 20 along the second.
+    gain : float, optional (default = 1.0)
+        The gain (scaling) applied to the orthogonal initialization.
+    """
+
+    # if isinstance(tensor, NDArray):
+    #     block_orthogonal(tensor.data, split_sizes, gain)
+    # else:
+    sizes = list(tensor.shape)
+    if any([a % b != 0 for a, b in zip(sizes, split_sizes)]):
+        raise ConfigurationError("tensor dimensions must be divisible by their respective "
+                                 "split_sizes. Found size: {} and split_sizes: {}".format(sizes, split_sizes))
+    indexes = [list(range(0, max_size, split))
+               for max_size, split in zip(sizes, split_sizes)]
+    # Iterate over all possible blocks within the tensor.
+    for block_start_indices in itertools.product(*indexes):
+        # A list of tuples containing the index to start at for this block
+        # and the appropriate step size (i.e split_size[i] for dimension i).
+        index_and_step_tuples = zip(block_start_indices, split_sizes)
+        # This is a tuple of slices corresponding to:
+        # tensor[index: index + step_size, ...]. This is
+        # required because we could have an arbitrary number
+        # of dimensions. The actual slices we need are the
+        # start_index: start_index + step for each dimension in the tensor.
+        block_slice = tuple([slice(start_index, start_index + step)
+                             for start_index, step in index_and_step_tuples])
+        orthogonal = init.Orthogonal(scale=gain)
+        temp = tensor[block_slice]
+        orthogonal._init_weight(None, temp)
+        tensor[block_slice] = temp
+
+
+class LstmCellWithProjection(gluon.Block):
     """
     An LSTM with Recurrent Dropout and a projected and clipped hidden state and
     memory. Note: this implementation is slower than the native Pytorch LSTM because
@@ -43,7 +100,7 @@ class LstmCellWithProjection(torch.nn.Module):
 
     Returns
     -------
-    output_accumulator : ``torch.FloatTensor``
+    output_accumulator : ``mxnet.ndarray.ndarray.NDArray``
         The outputs of the LSTM for each timestep. A tensor of shape
         (batch_size, max_timesteps, hidden_size) where for a given batch
         element, all outputs past the sequence length for that batch are
@@ -74,27 +131,31 @@ class LstmCellWithProjection(torch.nn.Module):
         self.recurrent_dropout_probability = recurrent_dropout_probability
 
         # We do the projections for all the gates all at once.
-        self.input_linearity = torch.nn.Linear(input_size, 4 * cell_size, bias=False)
-        self.state_linearity = torch.nn.Linear(hidden_size, 4 * cell_size, bias=True)
+        self.input_linearity = nn.Dense(4 * cell_size, in_units=input_size, use_bias=False)
+        self.state_linearity = nn.Dense(4 * cell_size, in_units=hidden_size, use_bias=True, bias_initializer='zeros')
 
         # Additional projection matrix for making the hidden state smaller.
-        self.state_projection = torch.nn.Linear(cell_size, hidden_size, bias=False)
-        self.reset_parameters()
+        self.state_projection = nn.Dense(hidden_size, in_units=cell_size, use_bias=False)
 
     def reset_parameters(self):
         # Use sensible default initializations for parameters.
-        block_orthogonal(self.input_linearity.weight.data, [self.cell_size, self.input_size])
-        block_orthogonal(self.state_linearity.weight.data, [self.cell_size, self.hidden_size])
+        block_orthogonal(self.input_linearity.weight.data(), [self.cell_size, self.input_size])
+        block_orthogonal(self.state_linearity.weight.data(), [self.cell_size, self.hidden_size])
 
-        self.state_linearity.bias.data.fill_(0.0)
+        # self.state_linearity.bias.data.fill_(0.0)
         # Initialize forget gate biases to 1.0 as per An Empirical
         # Exploration of Recurrent Network Architectures, (Jozefowicz, 2015).
-        self.state_linearity.bias.data[self.cell_size:2 * self.cell_size].fill_(1.0)
+        self.state_linearity.bias.data()[self.cell_size:2 * self.cell_size] = 1.0
+        # self.state_linearity.bias.data[self.cell_size:2 * self.cell_size].fill_(1.0)
+
+    def begin_state(self, batch_size, cell_size):
+        return nd.zeros((batch_size, self.cell_size)), nd.zeros((batch_size, self.cell_size))
+
 
     def forward(self,  # pylint: disable=arguments-differ
-                inputs: torch.FloatTensor,
+                inputs: NDArray,
                 batch_lengths: List[int],
-                initial_state: Optional[Tuple[torch.Tensor, torch.Tensor]] = None):
+                initial_state: Optional[Tuple[NDArray, NDArray]] = None):
         """
         Parameters
         ----------
@@ -120,22 +181,19 @@ class LstmCellWithProjection(torch.nn.Module):
             of the LSTM. The ``state`` has shape (1, batch_size, hidden_size) and the
             ``memory`` has shape (1, batch_size, cell_size).
         """
-        batch_size = inputs.size()[0]
-        total_timesteps = inputs.size()[1]
+        self.reset_parameters()
+        batch_size = inputs.shape[0]
+        total_timesteps = inputs.shape[1]
 
         # We have to use this '.data.new().fill_' pattern to create tensors with the correct
         # type - forward has no knowledge of whether these are torch.Tensors or torch.cuda.Tensors.
-        output_accumulator = Variable(inputs.data.new(batch_size,
-                                                      total_timesteps,
-                                                      self.hidden_size).fill_(0))
+        output_accumulator = nd.zeros((batch_size, total_timesteps, self.hidden_size)) # TODO: Check if context is right
+
         if initial_state is None:
-            full_batch_previous_memory = Variable(inputs.data.new(batch_size,
-                                                                  self.cell_size).fill_(0))
-            full_batch_previous_state = Variable(inputs.data.new(batch_size,
-                                                                 self.hidden_size).fill_(0))
+            full_batch_previous_memory, full_batch_previous_state = self.begin_state(batch_size, self.cell_size)
         else:
-            full_batch_previous_state = initial_state[0].squeeze(0)
-            full_batch_previous_memory = initial_state[1].squeeze(0)
+            full_batch_previous_state = nd.reshape(initial_state[0], (-3, initial_state[0].shape[2]))
+            full_batch_previous_memory = nd.reshape(initial_state[1], (-3, initial_state[1].shape[2]))
 
         current_length_index = batch_size - 1 if self.go_forward else 0
         if self.recurrent_dropout_probability > 0.0 and self.training:
@@ -172,9 +230,10 @@ class LstmCellWithProjection(torch.nn.Module):
             # Actually get the slices of the batch which we
             # need for the computation at this timestep.
             # shape (batch_size, cell_size)
-            previous_memory = full_batch_previous_memory[0: current_length_index + 1].clone()
+            # TODO: check if you need to detach states
+            previous_memory = full_batch_previous_memory[0: current_length_index + 1].copyto(full_batch_previous_memory.context)
             # Shape (batch_size, hidden_size)
-            previous_state = full_batch_previous_state[0: current_length_index + 1].clone()
+            previous_state = full_batch_previous_state[0: current_length_index + 1].copyto(full_batch_previous_state.context)
             # Shape (batch_size, input_size)
             timestep_input = inputs[0: current_length_index + 1, index]
 
@@ -185,13 +244,13 @@ class LstmCellWithProjection(torch.nn.Module):
 
             # Main LSTM equations using relevant chunks of the big linear
             # projections of the hidden state and inputs.
-            input_gate = torch.sigmoid(projected_input[:, (0 * self.cell_size):(1 * self.cell_size)] +
+            input_gate = mx.nd.sigmoid(projected_input[:, (0 * self.cell_size):(1 * self.cell_size)] +
                                        projected_state[:, (0 * self.cell_size):(1 * self.cell_size)])
-            forget_gate = torch.sigmoid(projected_input[:, (1 * self.cell_size):(2 * self.cell_size)] +
+            forget_gate = mx.nd.sigmoid(projected_input[:, (1 * self.cell_size):(2 * self.cell_size)] +
                                         projected_state[:, (1 * self.cell_size):(2 * self.cell_size)])
-            memory_init = torch.tanh(projected_input[:, (2 * self.cell_size):(3 * self.cell_size)] +
+            memory_init = mx.nd.tanh(projected_input[:, (2 * self.cell_size):(3 * self.cell_size)] +
                                      projected_state[:, (2 * self.cell_size):(3 * self.cell_size)])
-            output_gate = torch.sigmoid(projected_input[:, (3 * self.cell_size):(4 * self.cell_size)] +
+            output_gate = mx.nd.sigmoid(projected_input[:, (3 * self.cell_size):(4 * self.cell_size)] +
                                         projected_state[:, (3 * self.cell_size):(4 * self.cell_size)])
             memory = input_gate * memory_init + forget_gate * previous_memory
 
@@ -201,16 +260,16 @@ class LstmCellWithProjection(torch.nn.Module):
 
             if self.memory_cell_clip_value:
                 # pylint: disable=invalid-unary-operand-type
-                memory = torch.clamp(memory, -self.memory_cell_clip_value, self.memory_cell_clip_value)
+                memory = mx.nd.clip(memory, -self.memory_cell_clip_value, self.memory_cell_clip_value)
 
             # shape (current_length_index, cell_size)
-            pre_projection_timestep_output = output_gate * torch.tanh(memory)
+            pre_projection_timestep_output = output_gate * mx.nd.tanh(memory)
 
             # shape (current_length_index, hidden_size)
             timestep_output = self.state_projection(pre_projection_timestep_output)
             if self.state_projection_clip_value:
                 # pylint: disable=invalid-unary-operand-type
-                timestep_output = torch.clamp(timestep_output,
+                timestep_output = mx.nd.clip(timestep_output,
                                               -self.state_projection_clip_value,
                                               self.state_projection_clip_value)
 
@@ -221,8 +280,8 @@ class LstmCellWithProjection(torch.nn.Module):
             # We've been doing computation with less than the full batch, so here we create a new
             # variable for the the whole batch at this timestep and insert the result for the
             # relevant elements of the batch into it.
-            full_batch_previous_memory = Variable(full_batch_previous_memory.data.clone())
-            full_batch_previous_state = Variable(full_batch_previous_state.data.clone())
+            full_batch_previous_memory = full_batch_previous_memory.copyto(full_batch_previous_memory.context)
+            full_batch_previous_state = full_batch_previous_state.copyto(full_batch_previous_state.context)
             full_batch_previous_memory[0:current_length_index + 1] = memory
             full_batch_previous_state[0:current_length_index + 1] = timestep_output
             output_accumulator[0:current_length_index + 1, index] = timestep_output
@@ -230,7 +289,11 @@ class LstmCellWithProjection(torch.nn.Module):
         # Mimic the pytorch API by returning state in the following shape:
         # (num_layers * num_directions, batch_size, ...). As this
         # LSTM cell cannot be stacked, the first dimension here is just 1.
-        final_state = (full_batch_previous_state.unsqueeze(0),
-                       full_batch_previous_memory.unsqueeze(0))
+        final_state = (full_batch_previous_state.expand_dims(0),
+                       full_batch_previous_memory.expand_dims(0))
 
         return output_accumulator, final_state
+
+# cell = LstmCellWithProjection(100, 200, 300)
+# cell.collect_params().initialize()
+# cell(nd.ones((1,13,512)), [13])
