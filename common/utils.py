@@ -5,7 +5,7 @@ AllenNLP and its models are configured correctly.
 
 # pylint: disable=invalid-name,protected-access
 import logging
-import mxnet
+import mxnet as mx
 import os
 import shutil
 from unittest import TestCase
@@ -17,7 +17,7 @@ DATASET_CACHE = os.path.join(CACHE_ROOT, "datasets")
 
 
 def log_mxnet_version_info():
-    logger.info("MXNet version: %s", mxnet.__version__)
+    logger.info("MXNet version: %s", mx.__version__)
 
 class AllenNlpTestCase(TestCase):  # pylint: disable=too-many-public-methods
     """
@@ -53,7 +53,7 @@ class ConfigurationError(Exception):
     def __str__(self):
         return repr(self.message)
 
-def get_dropout_mask(dropout_probability: float, tensor_for_masking: mxnet.ndarray.ndarray.NDArray):
+def get_dropout_mask(dropout_probability: float, tensor_for_masking: mx.ndarray.ndarray.NDArray):
     """
     Computes and returns an element-wise dropout mask for a given tensor, where
     each element in the mask is dropped out with probability dropout_probability.
@@ -73,8 +73,7 @@ def get_dropout_mask(dropout_probability: float, tensor_for_masking: mxnet.ndarr
     This scaling ensures expected values and variances of the output of applying this mask
      and the original tensor are the same.
     """
-    binary_mask = tensor_for_masking.clone()
-    binary_mask.data.copy_(torch.rand(tensor_for_masking.size()) > dropout_probability)
+    binary_mask = mx.nd.random.uniform(0, 1, tensor_for_masking.shape) > dropout_probability
     # Scale mask by 1/keep_prob to preserve output statistics.
     dropout_mask = binary_mask.float().div(1.0 - dropout_probability)
     return dropout_mask

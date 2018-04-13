@@ -10,7 +10,7 @@ from typing import Optional, Tuple, List
 
 
 import itertools
-from common.utils import ConfigurationError
+from common.utils import ConfigurationError, get_dropout_mask
 
 import mxnet as mx
 from mxnet import gluon, nd, init
