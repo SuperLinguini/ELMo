@@ -3,13 +3,14 @@ A `Highway layer <https://arxiv.org/abs/1505.00387>`_ that does a gated combinat
 transformation and a non-linear transformation of its input.
 """
 
-from typing import Callable
+from mxnet import gluon
+from mxnet.gluon import nn
+from mxnet.ndarray.ndarray import NDArray
 
-import torch
 from overrides import overrides
 
 
-class Highway(torch.nn.Module):
+class Highway(gluon.Block):
     """
     A `Highway layer <https://arxiv.org/abs/1505.00387>`_ does a gated combination of a linear
     transformation and a non-linear transformation of its input.  :math:`y = g * x + (1 - g) *
@@ -26,27 +27,34 @@ class Highway(torch.nn.Module):
         input_dim)``.
     num_layers : ``int``, optional (default=``1``)
         The number of highway layers to apply to the input.
-    activation : ``Callable[[torch.Tensor], torch.Tensor]``, optional (default=``torch.nn.functional.relu``)
+    activation : ``nn.activations.Activation``, optional (default=``nn.Activation('relu')``)
         The non-linearity to use in the highway layers.
     """
     def __init__(self,
                  input_dim: int,
                  num_layers: int = 1,
-                 activation: Callable[[torch.Tensor], torch.Tensor] = torch.nn.functional.relu) -> None:
+                 activation: nn.activations.Activation = nn.Activation('relu')) -> None:
         super(Highway, self).__init__()
         self._input_dim = input_dim
-        self._layers = torch.nn.ModuleList([torch.nn.Linear(input_dim, input_dim * 2)
-                                            for _ in range(num_layers)])
+
+        self._layers = []
+        for _ in range(num_layers):
+            layer = nn.Dense(input_dim * 2, in_units=input_dim)
+            self.register_child(layer)
+            self._layers.append(layer)
+
         self._activation = activation
+
+    def set_bias(self):
         for layer in self._layers:
             # We should bias the highway layer to just carry its input forward.  We do that by
             # setting the bias on `B(x)` to be positive, because that means `g` will be biased to
             # be high, to we will carry the input forward.  The bias on `B(x)` is the second half
             # of the bias vector in each Linear layer.
-            layer.bias[input_dim:].data.fill_(1)
+            layer.bias.data()[self._input_dim:] = 1
 
     @overrides
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:  # pylint: disable=arguments-differ
+    def forward(self, inputs: NDArray) -> NDArray:  # pylint: disable=arguments-differ
         current_input = inputs
         for layer in self._layers:
             projected_input = layer(current_input)
@@ -56,6 +64,6 @@ class Highway(torch.nn.Module):
             nonlinear_part = projected_input[:, (0 * self._input_dim):(1 * self._input_dim)]
             gate = projected_input[:, (1 * self._input_dim):(2 * self._input_dim)]
             nonlinear_part = self._activation(nonlinear_part)
-            gate = torch.nn.functional.sigmoid(gate)
+            gate = gate.sigmoid()
             current_input = gate * linear_part + (1 - gate) * nonlinear_part
         return current_input
