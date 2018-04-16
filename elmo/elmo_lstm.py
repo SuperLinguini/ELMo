@@ -10,10 +10,10 @@ from torch.autograd import Variable
 import h5py
 import numpy
 
-from lstm_cell_with_projection import LstmCellWithProjection
-from common.utils import ConfigurationError
+from elmo.lstm_cell_with_projection import LstmCellWithProjection
+from elmo.common import ConfigurationError
 from allennlp.modules.encoder_base import _EncoderBase
-from common.file_utils import cached_path
+from elmo.common.file_utils import cached_path
 
 
 class ElmoLstm(_EncoderBase):

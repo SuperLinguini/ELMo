@@ -4,9 +4,8 @@ from torch.autograd import Variable
 import pytest
 import numpy
 
-from common.utils import AllenNlpTestCase
-from common.utils import ConfigurationError
-from blocks.scalar_mix import ScalarMix
+from elmo.common.utils import AllenNlpTestCase, ConfigurationError
+from elmo.blocks.scalar_mix import ScalarMix
 
 
 class TestScalarMix(AllenNlpTestCase):

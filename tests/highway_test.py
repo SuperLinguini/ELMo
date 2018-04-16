@@ -3,8 +3,8 @@ from numpy.testing import assert_almost_equal
 
 from mxnet import nd
 
-from blocks.highway import Highway
-from common.utils import AllenNlpTestCase
+from elmo.blocks.highway import Highway
+from elmo.common.utils import AllenNlpTestCase
 
 
 class TestHighway(AllenNlpTestCase):

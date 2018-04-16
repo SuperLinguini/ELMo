@@ -1,8 +1,8 @@
 # pylint: disable=no-self-use,invalid-name
 import numpy
 import mxnet as mx
-from lstm_cell_with_projection import LstmCellWithProjection
-from common.utils import AllenNlpTestCase
+from elmo.lstm_cell_with_projection import LstmCellWithProjection
+from elmo.common.utils import AllenNlpTestCase
 
 
 class TestLstmCellWithProjection(AllenNlpTestCase):

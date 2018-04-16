@@ -2,8 +2,8 @@
 import numpy
 import mxnet as mx
 
-from elmo_lstm import ElmoLstm
-from common.utils import AllenNlpTestCase
+from elmo.elmo_lstm import ElmoLstm
+from elmo.common.utils import AllenNlpTestCase
 
 
 class TestElmoLstmCell(AllenNlpTestCase):
