@@ -1,5 +1,5 @@
 """
-The :class:`~allennlp.common.params.Params` class represents a dictionary of
+The :class:`~elmo.common.params.Params` class represents a dictionary of
 parameters (e.g. for configuring a model), with added functionality around
 logging and validation.
 """

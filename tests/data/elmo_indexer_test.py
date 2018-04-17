@@ -1,7 +1,8 @@
 # pylint: disable=no-self-use
-from allennlp.common.testing import AllenNlpTestCase
-from allennlp.data import Token, Vocabulary
-from allennlp.data.token_indexers import ELMoTokenCharactersIndexer
+from elmo.common.utils import AllenNlpTestCase
+from elmo.data.token import Token
+from elmo.data.vocabulary import Vocabulary
+from elmo.data.token_indexers.elmo_indexer import ELMoTokenCharactersIndexer
 
 
 class TestELMoTokenCharactersIndexer(AllenNlpTestCase):

@@ -1,12 +1,12 @@
 from typing import Dict, Mapping
 
-from allennlp.data.fields.field import DataArray, Field
-from allennlp.data.vocabulary import Vocabulary
+from elmo.data.fields.field import DataArray, Field
+from elmo.data.vocabulary import Vocabulary
 
 
 class Instance:
     """
-    An ``Instance`` is a collection of :class:`~allennlp.data.fields.field.Field` objects,
+    An ``Instance`` is a collection of :class:`~elmo.data.fields.field.Field` objects,
     specifying the inputs and outputs to
     some model.  We don't make a distinction between inputs and outputs here, though - all
     operations are done on all fields, and when we return arrays, we return them as dictionaries

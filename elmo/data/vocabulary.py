@@ -10,12 +10,12 @@ import logging
 import os
 import gzip
 
-from allennlp.common.util import namespace_match
-from allennlp.common.params import Params
-from allennlp.common.checks import ConfigurationError
-from allennlp.common.file_utils import cached_path
-from allennlp.common.tqdm import Tqdm
-from allennlp.data import instance as adi  # pylint: disable=unused-import
+from elmo.common.util import namespace_match
+from elmo.common.params import Params
+from elmo.common.checks import ConfigurationError
+from elmo.common.file_utils import cached_path
+from elmo.common.tqdm import Tqdm
+from elmo.data import instance as adi  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 

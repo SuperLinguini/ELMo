@@ -2,12 +2,12 @@
 import pytest
 import numpy
 
-from allennlp.common.checks import ConfigurationError
-from allennlp.common.testing import AllenNlpTestCase
-from allennlp.data import Instance, Token, Vocabulary
-from allennlp.data.dataset import Batch
-from allennlp.data.fields import TextField, LabelField
-from allennlp.data.token_indexers import SingleIdTokenIndexer
+from elmo.common.checks import ConfigurationError
+from elmo.common.utils import AllenNlpTestCase
+from elmo.data import Instance, Token, Vocabulary
+from elmo.data.dataset import Batch
+from elmo.data.fields import TextField, LabelField
+from elmo.data.token_indexers import SingleIdTokenIndexer
 
 
 class TestDataset(AllenNlpTestCase):

@@ -1,9 +1,8 @@
 from typing import Dict, List, TypeVar, Generic
 
-from elmo.common.params import Params
-from elmo.common.registrable import Registrable
-from elmo.data.token import Token
-from elmo.data.vocabulary import Vocabulary
+from allennlp.common import Params, Registrable
+from allennlp.data.tokenizers.token import Token
+from allennlp.data.vocabulary import Vocabulary
 
 TokenType = TypeVar("TokenType", int, List[int])  # pylint: disable=invalid-name
 
@@ -11,7 +10,7 @@ class TokenIndexer(Generic[TokenType], Registrable):
     """
     A ``TokenIndexer`` determines how string tokens get represented as arrays of indices in a model.
     This class both converts strings into numerical values, with the help of a
-    :class:`~elmo.data.vocabulary.Vocabulary`, and it produces actual arrays.
+    :class:`~allennlp.data.vocabulary.Vocabulary`, and it produces actual arrays.
 
     Tokens can be represented as single IDs (e.g., the word "cat" gets represented by the number
     34), or as lists of character IDs (e.g., "cat" gets represented by the numbers [23, 10, 18]),

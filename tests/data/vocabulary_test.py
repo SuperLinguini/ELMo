@@ -5,15 +5,16 @@ import gzip
 from copy import deepcopy
 
 import pytest
-from allennlp.common.testing import AllenNlpTestCase
-from allennlp.data import Instance, Token
-from allennlp.data.dataset import Batch
-from allennlp.data.fields import TextField
-from allennlp.data.token_indexers import SingleIdTokenIndexer, TokenCharactersIndexer
-from allennlp.data.tokenizers import CharacterTokenizer
-from allennlp.data.vocabulary import Vocabulary, _NamespaceDependentDefaultDict, DEFAULT_OOV_TOKEN
-from allennlp.common.params import Params
-from allennlp.common.checks import ConfigurationError
+from elmo.common.utils import AllenNlpTestCase
+from elmo.data.instance import Instance
+from elmo.data.token import Token
+from elmo.data.dataset import Batch
+from elmo.data.text_field import TextField
+from elmo.data.token_indexers import SingleIdTokenIndexer, TokenCharactersIndexer
+from elmo.data.token_indexers.character_tokenizer import CharacterTokenizer
+from elmo.data.vocabulary import Vocabulary, _NamespaceDependentDefaultDict, DEFAULT_OOV_TOKEN
+from elmo.common.params import Params
+from elmo.common.utils import ConfigurationError
 
 
 class TestVocabulary(AllenNlpTestCase):
