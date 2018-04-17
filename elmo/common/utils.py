@@ -192,3 +192,99 @@ def batch_tensor_dicts(tensor_dicts: List[Dict[str, NDArray]],
             batched_tensor = mx.nd.reshape(batched_tensor, batched_tensor.shape[:-2] + (-3,))
         batched_tensors[key] = batched_tensor
     return batched_tensors
+
+def add_sentence_boundary_token_ids(tensor: torch.Tensor,
+                                    mask: torch.Tensor,
+                                    sentence_begin_token: Any,
+                                    sentence_end_token: Any) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Add begin/end of sentence tokens to the batch of sentences.
+    Given a batch of sentences with size ``(batch_size, timesteps)`` or
+    ``(batch_size, timesteps, dim)`` this returns a tensor of shape
+    ``(batch_size, timesteps + 2)`` or ``(batch_size, timesteps + 2, dim)`` respectively.
+
+    Returns both the new tensor and updated mask.
+
+    Parameters
+    ----------
+    tensor : ``torch.Tensor``
+        A tensor of shape ``(batch_size, timesteps)`` or ``(batch_size, timesteps, dim)``
+    mask : ``torch.Tensor``
+         A tensor of shape ``(batch_size, timesteps)``
+    sentence_begin_token: Any (anything that can be broadcast in torch for assignment)
+        For 2D input, a scalar with the <S> id. For 3D input, a tensor with length dim.
+    sentence_end_token: Any (anything that can be broadcast in torch for assignment)
+        For 2D input, a scalar with the </S> id. For 3D input, a tensor with length dim.
+
+    Returns
+    -------
+    tensor_with_boundary_tokens : ``torch.Tensor``
+        The tensor with the appended and prepended boundary tokens. If the input was 2D,
+        it has shape (batch_size, timesteps + 2) and if the input was 3D, it has shape
+        (batch_size, timesteps + 2, dim).
+    new_mask : ``torch.Tensor``
+        The new mask for the tensor, taking into account the appended tokens
+        marking the beginning and end of the sentence.
+    """
+    sequence_lengths = mask.sum(dim=1).data.cpu().numpy()
+    tensor_shape = list(tensor.data.shape)
+    new_shape = list(tensor_shape)
+    new_shape[1] = tensor_shape[1] + 2
+    tensor_with_boundary_tokens = Variable(tensor.data.new(*new_shape).fill_(0))
+    if len(tensor_shape) == 2:
+        tensor_with_boundary_tokens[:, 1:-1] = tensor
+        tensor_with_boundary_tokens[:, 0] = sentence_begin_token
+        for i, j in enumerate(sequence_lengths):
+            tensor_with_boundary_tokens[i, j + 1] = sentence_end_token
+        new_mask = (tensor_with_boundary_tokens != 0).long()
+    elif len(tensor_shape) == 3:
+        tensor_with_boundary_tokens[:, 1:-1, :] = tensor
+        for i, j in enumerate(sequence_lengths):
+            tensor_with_boundary_tokens[i, 0, :] = sentence_begin_token
+            tensor_with_boundary_tokens[i, j + 1, :] = sentence_end_token
+        new_mask = ((tensor_with_boundary_tokens > 0).long().sum(dim=-1) > 0).long()
+    else:
+        raise ValueError("add_sentence_boundary_token_ids only accepts 2D and 3D input")
+
+    return tensor_with_boundary_tokens, new_mask
+
+def remove_sentence_boundaries(tensor: torch.Tensor,
+                               mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Remove begin/end of sentence embeddings from the batch of sentences.
+    Given a batch of sentences with size ``(batch_size, timesteps, dim)``
+    this returns a tensor of shape ``(batch_size, timesteps - 2, dim)`` after removing
+    the beginning and end sentence markers.  The sentences are assumed to be padded on the right,
+    with the beginning of each sentence assumed to occur at index 0 (i.e., ``mask[:, 0]`` is assumed
+    to be 1).
+
+    Returns both the new tensor and updated mask.
+
+    This function is the inverse of ``add_sentence_boundary_token_ids``.
+
+    Parameters
+    ----------
+    tensor : ``torch.Tensor``
+        A tensor of shape ``(batch_size, timesteps, dim)``
+    mask : ``torch.Tensor``
+         A tensor of shape ``(batch_size, timesteps)``
+
+    Returns
+    -------
+    tensor_without_boundary_tokens : ``torch.Tensor``
+        The tensor after removing the boundary tokens of shape ``(batch_size, timesteps - 2, dim)``
+    new_mask : ``torch.Tensor``
+        The new mask for the tensor of shape ``(batch_size, timesteps - 2)``.
+    """
+    sequence_lengths = mask.sum(dim=1).data.cpu().numpy()
+    tensor_shape = list(tensor.data.shape)
+    new_shape = list(tensor_shape)
+    new_shape[1] = tensor_shape[1] - 2
+    tensor_without_boundary_tokens = Variable(tensor.data.new(*new_shape).fill_(0))
+    new_mask = Variable(tensor.data.new(new_shape[0], new_shape[1]).fill_(0)).long()
+    for i, j in enumerate(sequence_lengths):
+        if j > 2:
+            tensor_without_boundary_tokens[i, :(j - 2), :] = tensor[i, 1:(j - 1), :]
+            new_mask[i, :(j - 2)] = 1
+
+    return tensor_without_boundary_tokens, new_mask

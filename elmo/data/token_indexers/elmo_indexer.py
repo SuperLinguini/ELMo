@@ -6,7 +6,7 @@ from elmo.common.utils import ConfigurationError
 from elmo.common.params import Params
 from elmo.common.utils import pad_sequence_to_length
 from elmo.data.tokenizers.token import Token
-from elmo.data.token_indexer import TokenIndexer
+from elmo.data.token_indexers import TokenIndexer
 from elmo.data.vocabulary import Vocabulary
 
 
