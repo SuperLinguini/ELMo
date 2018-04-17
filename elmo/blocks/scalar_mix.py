@@ -1,11 +1,11 @@
 from typing import List
 
-import torch
-from torch.nn import ParameterList, Parameter
+from mxnet import gluon, nd
+from mxnet.ndarray.ndarray import NDArray
 
-from allennlp.common.checks import ConfigurationError
+from elmo.common.utils import ConfigurationError
 
-class ScalarMix(torch.nn.Module):
+class ScalarMix(gluon.Block):
     """
     Computes a parameterised scalar mixture of N tensors, ``mixture = gamma * sum(s_k * tensor_k)``
     where ``s = softmax(w)``, with ``w`` and ``gamma`` scalar parameters.
@@ -19,12 +19,12 @@ class ScalarMix(torch.nn.Module):
         self.mixture_size = mixture_size
         self.do_layer_norm = do_layer_norm
 
-        self.scalar_parameters = ParameterList([Parameter(torch.FloatTensor([0.0]))
-                                                for _ in range(mixture_size)])
-        self.gamma = Parameter(torch.FloatTensor([1.0]))
 
-    def forward(self, tensors: List[torch.Tensor],  # pylint: disable=arguments-differ
-                mask: torch.Tensor = None) -> torch.Tensor:
+        self.scalar_parameters = nd.zeros((3,))
+        self.gamma = nd.array([1.0])
+
+    def forward(self, tensors: List[NDArray],  # pylint: disable=arguments-differ
+                mask: NDArray = None) -> NDArray:
         """
         Compute a weighted average of the ``tensors``.  The input tensors an be any shape
         with at least two dimensions, but must all be the same shape.
@@ -42,13 +42,11 @@ class ScalarMix(torch.nn.Module):
 
         def _do_layer_norm(tensor, broadcast_mask, num_elements_not_masked):
             tensor_masked = tensor * broadcast_mask
-            mean = torch.sum(tensor_masked) / num_elements_not_masked
-            variance = torch.sum(((tensor_masked - mean) * broadcast_mask)**2) / num_elements_not_masked
-            return (tensor - mean) / torch.sqrt(variance + 1E-12)
+            mean = nd.sum(tensor_masked) / num_elements_not_masked
+            variance = nd.sum(((tensor_masked - mean) * broadcast_mask)**2) / num_elements_not_masked
+            return (tensor - mean) / nd.sqrt(variance + 1E-12)
 
-        normed_weights = torch.nn.functional.softmax(torch.cat([parameter for parameter
-                                                                in self.scalar_parameters]), dim=0)
-        normed_weights = torch.split(normed_weights, split_size=1)
+        normed_weights = nd.softmax(self.scalar_parameters, axis=0)
 
         if not self.do_layer_norm:
             pieces = []
@@ -57,10 +55,9 @@ class ScalarMix(torch.nn.Module):
             return self.gamma * sum(pieces)
 
         else:
-            mask_float = mask.float()
-            broadcast_mask = mask_float.unsqueeze(-1)
-            input_dim = tensors[0].size(-1)
-            num_elements_not_masked = torch.sum(mask_float) * input_dim
+            broadcast_mask = mask.expand_dims(-1)
+            input_dim = tensors[0].shape[-1]
+            num_elements_not_masked = nd.sum(mask) * input_dim
 
             pieces = []
             for weight, tensor in zip(normed_weights, tensors):
