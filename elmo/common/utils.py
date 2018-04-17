@@ -3,6 +3,27 @@ Functions and exceptions for checking that
 AllenNLP and its models are configured correctly.
 """
 
+from itertools import zip_longest, islice
+from typing import Any, Callable, Dict, List, Tuple, TypeVar, Iterable, Iterator
+import importlib
+import logging
+import pkgutil
+import random
+import resource
+import subprocess
+import sys
+import os
+
+import torch
+import numpy
+import spacy
+from spacy.cli.download import download as spacy_download
+from spacy.language import Language as SpacyModelType
+
+from elmo.common.params import Params
+from elmo.common.tqdm import Tqdm
+# from elmo.common.tee_logger import TeeLogger
+
 # pylint: disable=invalid-name,protected-access
 import logging
 import mxnet as mx
@@ -78,4 +99,45 @@ def get_dropout_mask(dropout_probability: float, tensor_for_masking: mx.ndarray.
     dropout_mask = binary_mask.float().div(1.0 - dropout_probability)
     return dropout_mask
 
+def pad_sequence_to_length(sequence: List,
+                           desired_length: int,
+                           default_value: Callable[[], Any] = lambda: 0,
+                           padding_on_right: bool = True) -> List:
+    """
+    Take a list of objects and pads it to the desired length, returning the padded list.  The
+    original list is not modified.
 
+    Parameters
+    ----------
+    sequence : List
+        A list of objects to be padded.
+
+    desired_length : int
+        Maximum length of each sequence. Longer sequences are truncated to this length, and
+        shorter ones are padded to it.
+
+    default_value: Callable, default=lambda: 0
+        Callable that outputs a default value (of any type) to use as padding values.  This is
+        a lambda to avoid using the same object when the default value is more complex, like a
+        list.
+
+    padding_on_right : bool, default=True
+        When we add padding tokens (or truncate the sequence), should we do it on the right or
+        the left?
+
+    Returns
+    -------
+    padded_sequence : List
+    """
+    # Truncates the sequence to the desired length.
+    if padding_on_right:
+        padded_sequence = sequence[:desired_length]
+    else:
+        padded_sequence = sequence[-desired_length:]
+    # Continues to pad with default_value() until we reach the desired length.
+    for _ in range(desired_length - len(padded_sequence)):
+        if padding_on_right:
+            padded_sequence.append(default_value())
+        else:
+            padded_sequence.insert(0, default_value())
+    return padded_sequence
