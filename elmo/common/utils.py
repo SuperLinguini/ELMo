@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 CACHE_ROOT = os.path.expanduser(os.path.join('~', '.allennlp'))
 DATASET_CACHE = os.path.join(CACHE_ROOT, "datasets")
 
+A = TypeVar('A')
 
 def log_mxnet_version_info():
     logger.info("MXNet version: %s", mx.__version__)
@@ -141,3 +142,13 @@ def pad_sequence_to_length(sequence: List,
         else:
             padded_sequence.insert(0, default_value())
     return padded_sequence
+
+def ensure_list(iterable: Iterable[A]) -> List[A]:
+    """
+    An Iterable may be a list or a generator.
+    This ensures we get a list without making an unnecessary copy.
+    """
+    if isinstance(iterable, list):
+        return iterable
+    else:
+        return list(iterable)

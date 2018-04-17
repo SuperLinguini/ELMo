@@ -1,8 +1,9 @@
 from typing import Dict, List, TypeVar, Generic
 
-from elmo.common.params import Params, Registrable
-from allennlp.data.tokenizers.token import Token
-from allennlp.data.vocabulary import Vocabulary
+from elmo.common.params import Params
+from elmo.common.registrable import Registrable
+from elmo.data.token import Token
+from elmo.data.vocabulary import Vocabulary
 
 TokenType = TypeVar("TokenType", int, List[int])  # pylint: disable=invalid-name
 

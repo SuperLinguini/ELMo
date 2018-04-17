@@ -5,9 +5,9 @@ from overrides import overrides
 from elmo.common.utils import ConfigurationError
 from elmo.common.params import Params
 from elmo.common.utils import pad_sequence_to_length
-from allennlp.data.tokenizers.token import Token
-from allennlp.data.token_indexers.token_indexer import TokenIndexer
-from allennlp.data.vocabulary import Vocabulary
+from elmo.data.token import Token
+from elmo.data.token_indexer import TokenIndexer
+from elmo.data.vocabulary import Vocabulary
 
 
 def _make_bos_eos(
