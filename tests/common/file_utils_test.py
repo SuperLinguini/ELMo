@@ -6,8 +6,8 @@ import pytest
 
 import responses
 
-from allennlp.common.file_utils import url_to_filename, filename_to_url, get_from_cache, cached_path
-from allennlp.common.testing import AllenNlpTestCase
+from elmo.common.file_utils import url_to_filename, filename_to_url, get_from_cache, cached_path
+from elmo.common.utils import AllenNlpTestCase
 
 def set_up_glove(url: str, byt: bytes, change_etag_every: int = 1000):
     # Mock response for the datastore url that returns glove vectors
