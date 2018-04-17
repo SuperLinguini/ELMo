@@ -5,28 +5,30 @@ AllenNLP and its models are configured correctly.
 
 from itertools import zip_longest, islice
 from typing import Any, Callable, Dict, List, Tuple, TypeVar, Iterable, Iterator
-import importlib
-import logging
-import pkgutil
-import random
-import resource
-import subprocess
-import sys
-import os
-
-import torch
-import numpy
-import spacy
-from spacy.cli.download import download as spacy_download
-from spacy.language import Language as SpacyModelType
-
-from elmo.common.params import Params
-from elmo.common.tqdm import Tqdm
+# import importlib
+# import logging
+# import pkgutil
+# import random
+# import resource
+# import subprocess
+# import sys
+# import os
+#
+# import torch
+# import numpy
+# import spacy
+# from spacy.cli.download import download as spacy_download
+# from spacy.language import Language as SpacyModelType
+#
+# from elmo.common.params import Params
+# from elmo.common.tqdm import Tqdm
 # from elmo.common.tee_logger import TeeLogger
 
 # pylint: disable=invalid-name,protected-access
 import logging
 import mxnet as mx
+from mxnet.ndarray.ndarray import NDArray
+from collections import defaultdict
 import os
 import shutil
 from unittest import TestCase
@@ -152,3 +154,41 @@ def ensure_list(iterable: Iterable[A]) -> List[A]:
         return iterable
     else:
         return list(iterable)
+
+def namespace_match(pattern: str, namespace: str):
+    """
+    Matches a namespace pattern against a namespace string.  For example, ``*tags`` matches
+    ``passage_tags`` and ``question_tags`` and ``tokens`` matches ``tokens`` but not
+    ``stemmed_tokens``.
+    """
+    if pattern[0] == '*' and namespace.endswith(pattern[1:]):
+        return True
+    elif pattern == namespace:
+        return True
+    return False
+
+def batch_tensor_dicts(tensor_dicts: List[Dict[str, NDArray]],
+                       remove_trailing_dimension: bool = False) -> Dict[str, NDArray]:
+    """
+    Takes a list of tensor dictionaries, where each dictionary is assumed to have matching keys,
+    and returns a single dictionary with all tensors with the same key batched together.
+
+    Parameters
+    ----------
+    tensor_dicts : ``List[Dict[str, NDArray]]``
+        The list of tensor dictionaries to batch.
+    remove_trailing_dimension : ``bool``
+        If ``True``, we will check for a trailing dimension of size 1 on the tensors that are being
+        batched, and remove it if we find it.
+    """
+    key_to_tensors: Dict[str, List[NDArray]] = defaultdict(list)
+    for tensor_dict in tensor_dicts:
+        for key, tensor in tensor_dict.items():
+            key_to_tensors[key].append(tensor)
+    batched_tensors = {}
+    for key, tensor_list in key_to_tensors.items():
+        batched_tensor = mx.nd.stack(*tensor_list, axis=0)
+        if remove_trailing_dimension and all(tensor.shape[-1] == 1 for tensor in tensor_list):
+            batched_tensor = mx.nd.reshape(batched_tensor, batched_tensor.shape[:-2] + (-3,))
+        batched_tensors[key] = batched_tensor
+    return batched_tensors

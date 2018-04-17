@@ -3,13 +3,12 @@ import itertools
 
 from overrides import overrides
 
-from allennlp.common.checks import ConfigurationError
-from allennlp.common.params import Params
-from allennlp.common.util import pad_sequence_to_length
-from allennlp.data.tokenizers.token import Token
+from elmo.common.utils import ConfigurationError, pad_sequence_to_length
+from elmo.common.params import Params
+from elmo.data.tokenizers.token import Token
 from elmo.data.token_indexers.token_indexer import TokenIndexer
-from allennlp.data.vocabulary import Vocabulary
-from allennlp.data.tokenizers.character_tokenizer import CharacterTokenizer
+from elmo.data.vocabulary import Vocabulary
+from elmo.data.tokenizers.character_tokenizer import CharacterTokenizer
 
 
 @TokenIndexer.register("characters")

@@ -11,7 +11,7 @@ import h5py
 from overrides import overrides
 
 from allennlp.common.file_utils import cached_path
-from allennlp.common.checks import ConfigurationError
+from elmo.common.utils import ConfigurationError
 from allennlp.common import Params
 from allennlp.modules.elmo_lstm import ElmoLstm
 from allennlp.modules.highway import Highway

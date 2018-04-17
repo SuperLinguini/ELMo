@@ -7,11 +7,11 @@ from copy import deepcopy
 import pytest
 from elmo.common.utils import AllenNlpTestCase
 from elmo.data.instance import Instance
-from elmo.data.token import Token
+from elmo.data.tokenizers.token import Token
 from elmo.data.dataset import Batch
-from elmo.data.text_field import TextField
+from elmo.data.fields.text_field import TextField
 from elmo.data.token_indexers import SingleIdTokenIndexer, TokenCharactersIndexer
-from elmo.data.token_indexers.character_tokenizer import CharacterTokenizer
+from elmo.data.tokenizers import CharacterTokenizer
 from elmo.data.vocabulary import Vocabulary, _NamespaceDependentDefaultDict, DEFAULT_OOV_TOKEN
 from elmo.common.params import Params
 from elmo.common.utils import ConfigurationError

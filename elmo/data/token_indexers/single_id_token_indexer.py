@@ -2,11 +2,11 @@ from typing import Dict, List
 
 from overrides import overrides
 
-from allennlp.common.util import pad_sequence_to_length
-from allennlp.common import Params
-from allennlp.data.vocabulary import Vocabulary
-from allennlp.data.tokenizers.token import Token
-from allennlp.data.token_indexers.token_indexer import TokenIndexer
+from elmo.common.utils import pad_sequence_to_length
+from elmo.common import Params
+from elmo.data.vocabulary import Vocabulary
+from elmo.data.tokenizers.token import Token
+from elmo.data.token_indexers.token_indexer import TokenIndexer
 
 
 @TokenIndexer.register("single_id")

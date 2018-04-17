@@ -1,6 +1,6 @@
 # pylint: disable=no-self-use
 from elmo.common.utils import AllenNlpTestCase
-from elmo.data.token import Token
+from elmo.data.tokenizers.token import Token
 from elmo.data.vocabulary import Vocabulary
 from elmo.data.token_indexers.elmo_indexer import ELMoTokenCharactersIndexer
 

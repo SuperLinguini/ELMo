@@ -2,9 +2,10 @@
 import pytest
 import numpy
 
-from elmo.common.checks import ConfigurationError
-from elmo.common.utils import AllenNlpTestCase
-from elmo.data import Instance, Token, Vocabulary
+from elmo.common.utils import ConfigurationError, AllenNlpTestCase
+from elmo.data.instance import Instance
+from elmo.data.vocabulary import Vocabulary
+from elmo.data.tokenizers import Token
 from elmo.data.dataset import Batch
 from elmo.data.fields import TextField, LabelField
 from elmo.data.token_indexers import SingleIdTokenIndexer
@@ -39,8 +40,8 @@ class TestDataset(AllenNlpTestCase):
         dataset.index_instances(self.vocab)
         padding_lengths = dataset.get_padding_lengths()
         tensors = dataset.as_tensor_dict(padding_lengths)
-        text1 = tensors["text1"]["tokens"].data.cpu().numpy()
-        text2 = tensors["text2"]["tokens"].data.cpu().numpy()
+        text1 = tensors["text1"]["tokens"].asnumpy()
+        text2 = tensors["text2"]["tokens"].asnumpy()
 
         numpy.testing.assert_array_almost_equal(text1, numpy.array([[2, 3, 4, 5, 6],
                                                                     [1, 3, 4, 5, 6]]))
