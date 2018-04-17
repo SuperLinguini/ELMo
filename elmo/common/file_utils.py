@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 import requests
 
-from allennlp.common.tqdm import Tqdm
+from elmo.common.tqdm import Tqdm
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
